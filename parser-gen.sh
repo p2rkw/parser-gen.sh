@@ -14,16 +14,6 @@ debug(){
   done
 }
 
-asd(){
-    case "$@" in
-      pack)
-        shift 2;
-        echo $1
-      ;;
-      unpack)
-    esac
-}
-
 _countCommas(){
   local in="$@"
   local res="${in//[^,]}"
@@ -68,6 +58,7 @@ emitBody0(){
         $body
       ;;"
 }
+
 emitBody1(){
   eval "$(_getArgs fnName body arg)"
   echo "
@@ -113,7 +104,6 @@ emitBodyMore(){
       ;;"
 }
 
-
 emitFooter(){
   echo "
       *)
@@ -128,12 +118,13 @@ emitFooter(){
 }
 
 genParser(){
-  local pt decl body fnName args argsCount parserFnName
+  local pt decl body fnName args argsCount parserFnName parserTable
 
-  parserTable=$1
-  pt=${!parserTable}
+  parserFnName=$1
+  shift
+  parserTable=$@
     
-  emitHeader $parserTable z
+  emitHeader $parserFnName z
   while read line; do
     decl=${line%:*}
     body=${line#*:}
@@ -148,35 +139,33 @@ genParser(){
     else
       emitBodyMore "$fnName" "$body" "$args"
     fi
-  done <<< "$pt"
+  done <<< "$parserTable"
   emitFooter
 }
 
+NAME=$1
+shift
+TABLE="$@"
+genParser $NAME "$TABLE"
+
+#------------------------------------------------------------------------------#
+# Example usage from other scripts:
+#--------------------------------# Code block #--------------------------------#
+: << "CODE_BLOCK"
 DEBUG=0
+eval "$(./parser-gen.sh myParser 'asd(a):A=$a; echo "A=$a"
+ zxc():ZXC=true; echo "ZXC=true"
+ def(a,b):echo $a $b; echo "$a $b"
+ debug():DEBUG=1')"
+myParser --asd=42 --zxc --def 4,2 --debug
+CODE_BLOCK
+# or
+: << "CODE_BLOCK"
 myParser='asd(a):A=$a; echo "A=$a"
   zxc():ZXC=true; echo "ZXC=true"
   def(a,b):echo $a $b; echo "$a $b"
   debug():DEBUG=1'
-
-eval "$(genParser myParser)"
-myParser $@
-
-if [ "$DEBUG" == "1" ]; then
-# print generated parser
-  genParser myParser
-fi
-
-
-
-
-: << COMMENT
-function parse(){
-  local numArgs=$#
-  local i
-  for (( i=0; i <= numArgs; ++i)); do
-    echo arg[$i]=${!i}
-  done
-}
-
-#parse $@
-COMMENT
+eval "$(./parser-gen.sh myParser "$myParser")"
+myParser --asd=42 --zxc --def 4,2 --debug
+CODE_BLOCK
+#
